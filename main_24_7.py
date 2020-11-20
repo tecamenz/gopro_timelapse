@@ -76,7 +76,7 @@ def nightlapse(error_event, stop_event):
         ret = gopro.gpControlSet(constants.Multishot.NIGHT_LAPSE_EXP, constants.Multishot.NightLapseExp.ExpAuto)
         assert(ret==RESP_OK)
         time.sleep(0.5)
-        ret = gopro.gpControlSet(constants.Multishot.TIMELAPSE_INTERVAL, constants.Multishot.NightLapseInterval.I1m)
+        ret = gopro.gpControlSet(constants.Multishot.NIGHT_LAPSE_INTERVAL, constants.Multishot.NightLapseInterval.I5m)
         assert(ret==RESP_OK)
         time.sleep(0.5)
     except Exception as e:
