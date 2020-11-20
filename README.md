@@ -41,3 +41,5 @@ Reconfigure the interface
 wpa_cli -i wlan0 reconfigure
 ```
 You can verify whether it has successfully connected using `ifconfig wlan0`
+
+5. Pairing: run `python pair.py`
