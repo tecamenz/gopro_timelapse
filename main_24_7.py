@@ -18,11 +18,6 @@ logger.info('Init GoPro')
 gopro = GoProCamera.GoPro(constants.gpcontrol)
 time.sleep(1)
 
-logger.info('Sync local time')
-ret = gopro.syncTime()
-assert(ret==RESP_OK)
-time.sleep(0.5)
-
 logger.info('Silence Mode, No Auto-OFF')
 ret = gopro.gpControlSet(constants.Setup.VOICE_CONTROL, constants.Setup.VoiceControl.OFF)
 assert(ret==RESP_OK)
@@ -31,9 +26,42 @@ ret = gopro.gpControlSet(constants.Setup.AUTO_OFF, constants.Setup.AutoOff.Never
 assert(ret==RESP_OK)
 time.sleep(0.5)
 
-def daylapse(interval, error_event, stop_event):
+def daylapse(error_event, stop_event):    
+    logger.info('Set config for Daytime Timelapse...')
+    try:
+        ret = gopro.mode(constants.Mode.MultiShotMode, constants.Mode.SubMode.MultiShot.TimeLapse)
+        assert(ret==RESP_OK)
+        time.sleep(0.5)
+        ret = gopro.gpControlSet(constants.Multishot.TIMELAPSE_INTERVAL, constants.Multishot.TimeLapseInterval.I60)
+        assert(ret==RESP_OK)
+        time.sleep(0.5)
+        ret = gopro.gpControlSet(constants.Multishot.WHITE_BALANCE, constants.Multishot.WhiteBalance.WBAuto)
+        assert(ret==RESP_OK)
+        time.sleep(0.5)
+    except Exception as e:
+        logger.exception(e)
+        error_event.set()
+        return
+
+    try:
+        ret = gopro.shutter(constants.start)
+        assert(ret==RESP_OK)
+        logger.info('State: Recording...')
+        while (not stop_event.is_set()) & (not error_event.is_set()) & (gopro.IsRecording()):
+            time.sleep(2)
+    except Exception as e:
+        logger.exception(e)
+        logger.info('gopro.IsRecording returned: {}'.format(gopro.IsRecording()))
+        error_event.set()
+    
+    finally:
+        ret = gopro.shutter(constants.stop)
+        assert(ret==RESP_OK)
+        logger.info('State: Stopped')
+
+def daylapse_hdr(interval, error_event, stop_event):
     assert (interval > 0), 'Intervall must be greater than 0'
-    logger.info('Set config for daytime timelapse ...')
+    logger.info('Set config for HDR Daytime Timelapse ...')
     try:
         ret = gopro.mode(constants.Mode.PhotoMode, constants.Mode.SubMode.Photo.Single)
         assert(ret==RESP_OK)
@@ -67,16 +95,20 @@ def daylapse(interval, error_event, stop_event):
     finally:
         logger.info('State: Stopped')
 
-def nightlapse(error_event, stop_event):    
+def nightlapse(error_event, stop_event):   
     logger.info('Set config for nightlapse...')
     try:
+
         ret = gopro.mode(constants.Mode.MultiShotMode, constants.Mode.SubMode.MultiShot.NightLapse)
         assert(ret==RESP_OK)
         time.sleep(0.5)
         ret = gopro.gpControlSet(constants.Multishot.NIGHT_LAPSE_EXP, constants.Multishot.NightLapseExp.ExpAuto)
         assert(ret==RESP_OK)
         time.sleep(0.5)
-        ret = gopro.gpControlSet(constants.Multishot.NIGHT_LAPSE_INTERVAL, constants.Multishot.NightLapseInterval.I5m)
+        ret = gopro.gpControlSet(constants.Multishot.NIGHT_LAPSE_INTERVAL, constants.Multishot.NightLapseInterval.I1m)
+        assert(ret==RESP_OK)
+        time.sleep(0.5)
+        ret = gopro.gpControlSet(constants.Multishot.WHITE_BALANCE, constants.Multishot.WhiteBalance.WB4000k)
         assert(ret==RESP_OK)
         time.sleep(0.5)
     except Exception as e:
@@ -92,11 +124,14 @@ def nightlapse(error_event, stop_event):
             time.sleep(2)
     except Exception as e:
         logger.exception(e)
+        logger.info('gopro.IsRecording returned: {}'.format(gopro.IsRecording()))
         error_event.set()
     
     finally:
-        gopro.shutter(constants.stop)
+        ret = gopro.shutter(constants.stop)
+        assert(ret==RESP_OK)
         logger.info('State: Stopped')
+
 
     
 
@@ -112,16 +147,26 @@ if __name__ == "__main__":
             stop_event.clear()
 
             now = datetime.now(timezone.utc)
+            # now = datetime.strptime('2020-11-21 22:35:01', '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
 
             s = sun(city.observer, date=now)
             day_start = s["sunrise"]
             day_end = s["sunset"]
 
+            try:
+                logger.info('Sync local time')
+                ret = gopro.syncTime()
+                assert(ret==RESP_OK)
+                time.sleep(0.5) 
+            except Exception as e:
+                logger.error('Could not set time...')
+                logger.exception(e)
+
             state = None
             if (now > day_start) & (now < day_end):
                 logger.info('')
                 logger.info('Start daytime logging')
-                day_thread = threading.Thread(target=daylapse, args=(60, error_event, stop_event,))
+                day_thread = threading.Thread(target=daylapse, args=(error_event, stop_event,))
                 day_thread.start()
                 state = 'Day'
             
@@ -135,17 +180,19 @@ if __name__ == "__main__":
 
             while (not error_event.is_set()) & (not stop_event.is_set()):
                 now = datetime.now(timezone.utc)
-                if not day_end.day == now.day:
-                    # calculate new sunrise and sunset times
-                    s = sun(city.observer, date=now)
-                    day_start = s["sunrise"]
-                    day_end = s["sunset"]
+                # now = datetime.strptime('2020-11-21 22:35:01', '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+                # if not day_end.day == now.day:
+                #     # calculate new sunrise and sunset times
+                #     s = sun(city.observer, date=now)
+                #     day_start = s["sunrise"]
+                #     day_end = s["sunset"]
                 
                 if (state == 'Day') & (now > day_end):
                     logger.info('Transition to night...')
                     if day_thread.is_alive():
                         stop_event.set()
                         day_thread.join()
+                        time.sleep(90)
                         break
                     else:
                         error_event.set()
@@ -153,13 +200,15 @@ if __name__ == "__main__":
                         
 
                 if (state == 'Night'):
-                    if not now.day == day_end.day: # not between dusk and midnight? New day?
+                    time.sleep(30)
+                    if not now.day == day_end.day: # already past midnight?
                         s = sun(city.observer, date=now)
                         if (now > s["sunrise"]):
                             logger.info('Transition to daytime...')
                             if night_thread.is_alive():
                                 stop_event.set()
                                 night_thread.join()
+                                time.sleep(90)
                                 break
                             else:
                                 error_event.set()
