@@ -1,3 +1,4 @@
 pyyaml
 goprocam
 astral
+python-telegram-bot

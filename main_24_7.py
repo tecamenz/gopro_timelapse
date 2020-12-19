@@ -3,12 +3,27 @@ from astral import LocationInfo
 from astral.sun import sun
 from utils import log
 from datetime import datetime, timezone
+import telegram
 import threading 
 import queue
 import time 
+import signal
+import sys
 
 log.setup_logging()
 logger = log.get_logger(__name__)
+
+def sigterm_handler(_signo, _stack_frame):
+    sys.exit(0)
+
+
+telegram_token = ""
+telegram_channel = ""
+try:
+    bot = telegram.Bot(token=telegram_token)
+except Exception as e:
+    logger.error('Could not init telegram bot')
+    logger.exception(e)
 
 RESP_OK = '{}\n'
 
@@ -138,7 +153,7 @@ def nightlapse(error_event, stop_event):
 
 
 if __name__ == "__main__":
-    
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     try:
         error_event = threading.Event()
@@ -154,6 +169,16 @@ if __name__ == "__main__":
             day_end = s["sunset"]
 
             try:
+                gopro_status_space = gopro.getStatus(constants.Status.Status, constants.Status.STATUS.RemainingSpace)
+                remaining_space = gopro.parse_value("rem_space", gopro_status_space)
+                logger.info("Space left in sd card: {}".format(remaining_space))
+                bot.send_message(chat_id=telegram_channel, text="Space left in sd card: {}".format(remaining_space))
+            except Exception as e:
+                logger.error('Could not get remaining space')
+                logger.exception(e)
+
+
+            try:
                 logger.info('Sync local time')
                 ret = gopro.syncTime()
                 assert(ret==RESP_OK)
@@ -166,6 +191,11 @@ if __name__ == "__main__":
             if (now > day_start) & (now < day_end):
                 logger.info('')
                 logger.info('Start daytime logging')
+                try:
+                    bot.send_message(chat_id=telegram_channel, text="Start daytime logging")
+                except Exception as e:
+                    logger.error('Could not send telegram message')
+                    logger.exception(e)
                 day_thread = threading.Thread(target=daylapse, args=(error_event, stop_event,))
                 day_thread.start()
                 state = 'Day'
@@ -173,6 +203,11 @@ if __name__ == "__main__":
             else:
                 logger.info('')
                 logger.info('Start nighttime logging')
+                try:
+                    bot.send_message(chat_id=telegram_channel, text="Start nighttime logging")
+                except Exception as e:
+                    logger.error('Could not send telegram message')
+                    logger.exception(e)
                 night_thread = threading.Thread(target=nightlapse, args=(error_event, stop_event,))
                 night_thread.start()
                 state = 'Night'
@@ -189,6 +224,11 @@ if __name__ == "__main__":
                 
                 if (state == 'Day') & (now > day_end):
                     logger.info('Transition to night...')
+                    try:
+                        bot.send_message(chat_id=telegram_channel, text="Transition to night...")
+                    except Exception as e:
+                        logger.error('Could not send telegram message')
+                        logger.exception(e)
                     if day_thread.is_alive():
                         stop_event.set()
                         day_thread.join()
@@ -205,6 +245,11 @@ if __name__ == "__main__":
                         s = sun(city.observer, date=now)
                         if (now > s["sunrise"]):
                             logger.info('Transition to daytime...')
+                            try:
+                                bot.send_message(chat_id=telegram_channel, text="Transition to daytime...")
+                            except Exception as e:
+                                logger.error('Could not send telegram message')
+                                logger.exception(e)
                             if night_thread.is_alive():
                                 stop_event.set()
                                 night_thread.join()
