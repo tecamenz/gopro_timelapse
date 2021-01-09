@@ -28,7 +28,7 @@ except Exception as e:
 RESP_OK = '{}\n'
 
 city = LocationInfo('Lucerne', 'Swiss', 'Europe/Zurich', "47°3′N", "8°18′E")
-
+time.sleep(5)
 logger.info('Init GoPro')
 gopro = GoProCamera.GoPro(constants.gpcontrol)
 time.sleep(1)
@@ -53,7 +53,12 @@ def daylapse(error_event, stop_event):
         ret = gopro.gpControlSet(constants.Multishot.WHITE_BALANCE, constants.Multishot.WhiteBalance.WBAuto)
         assert(ret==RESP_OK)
         time.sleep(0.5)
+        # ret = gopro.gpControlSet(constants.Multishot.PROTUNE_MULTISHOT, constants.Multishot.ProTune.ON)
+        # assert(ret==RESP_OK)
+        # time.sleep(0.5)
+
     except Exception as e:
+        logger.info(ret)
         logger.exception(e)
         error_event.set()
         return
@@ -70,9 +75,14 @@ def daylapse(error_event, stop_event):
         error_event.set()
     
     finally:
-        ret = gopro.shutter(constants.stop)
-        assert(ret==RESP_OK)
-        logger.info('State: Stopped')
+        for i in range(10):
+            logger.info('Try stopping gopro...')
+            ret = gopro.shutter(constants.stop)
+            if (ret==RESP_OK):
+                logger.info('State: Stopped')
+                break
+            else:
+                time.sleep(2)
 
 def daylapse_hdr(interval, error_event, stop_event):
     assert (interval > 0), 'Intervall must be greater than 0'
@@ -126,7 +136,14 @@ def nightlapse(error_event, stop_event):
         ret = gopro.gpControlSet(constants.Multishot.WHITE_BALANCE, constants.Multishot.WhiteBalance.WB4000k)
         assert(ret==RESP_OK)
         time.sleep(0.5)
+        ret = gopro.gpControlSet(constants.Multishot.ISO_LIMIT, constants.Multishot.IsoLimit.ISO200)
+        assert(ret==RESP_OK)
+        time.sleep(0.5)
+        # ret = gopro.gpControlSet(constants.Multishot.PROTUNE_MULTISHOT, constants.Multishot.ProTune.ON)
+        # assert(ret==RESP_OK)
+        # time.sleep(0.5)
     except Exception as e:
+        logger.info(ret)
         logger.exception(e)
         error_event.set()
         return
@@ -143,9 +160,14 @@ def nightlapse(error_event, stop_event):
         error_event.set()
     
     finally:
-        ret = gopro.shutter(constants.stop)
-        assert(ret==RESP_OK)
-        logger.info('State: Stopped')
+        for i in range(10):
+            logger.info('Try stopping gopro...')
+            ret = gopro.shutter(constants.stop)
+            if (ret==RESP_OK):
+                logger.info('State: Stopped')
+                break
+            else:
+                time.sleep(2)
 
 
     
@@ -276,4 +298,4 @@ if __name__ == "__main__":
         error_event.set()
 
     finally:
-        pass
+        logger.info("Main Thread End!")
