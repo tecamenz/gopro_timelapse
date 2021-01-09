@@ -43,3 +43,9 @@ wpa_cli -i wlan0 reconfigure
 You can verify whether it has successfully connected using `ifconfig wlan0`
 
 5. Pairing: run `python pair.py`
+6. Start tmux session, activate env and start `keepalive.py`
+
+## Start
+
+1. Edit `main_24_7.py` and add Telegram token and channel 
+2. Activate env (in tmux session) and start `main_24_7.py`
