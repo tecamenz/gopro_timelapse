@@ -45,7 +45,10 @@ You can verify whether it has successfully connected using `ifconfig wlan0`
 5. Pairing: run `python pair.py`
 6. Start tmux session, activate env and start `keepalive.py`
 
-## Start
+## Install Service & Start
 
-1. Edit `main_24_7.py` and add Telegram token and channel 
-2. Activate env (in tmux session) and start `main_24_7.py`
+```cmd
+sudo cp /home/pi/gopro_timelapse/gopro_timelapse_service.service /etc/systemd/system/gopro_timelapse_service.service
+sudo systemctl daemon-reload
+sudo systemctl start gopro_timelapse_service.service
+```
