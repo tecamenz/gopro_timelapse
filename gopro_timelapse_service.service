@@ -1,0 +1,14 @@
+[Unit]
+Description=gopro_timelapse_service
+After=multi-user.target
+
+[Service]
+Type=simple
+User=pi
+ExecStart=/home/pi/gopro_timelapse/.venv/bin/python3 /home/pi/gopro_timelapse/main_24_7.py
+WorkingDirectory=/home/pi/gopro_timelapse
+Restart=always
+RestartSec=90
+
+[Install]
+WantedBy=multi-user.target
