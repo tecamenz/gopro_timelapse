@@ -7,6 +7,17 @@ Update
 sudo apt-get update && sudo apt-get upgrade
 ```
 
+Install important packages
+```cmd
+sudo apt-get install tmux ntp -y
+sudo apt-get install python3 python3-venv -y
+```
+
+Config timezone
+```cmd
+sudo timedatectl set-timezone Europe/Zurich
+```
+
 Create a virtual environment and activate it
 ```cmd
 cd GOPRO_TIMELAPSE
